@@ -24,7 +24,7 @@ int main(int argc, char* argv[]) {
 
   detection::ShipDetector detector;
   bool start = false;
-  int curr_frame = 1;
+  int currFrame = 1;
 
   while (true) {
     cv::Mat frame, filtered;
@@ -34,34 +34,31 @@ int main(int argc, char* argv[]) {
     ptrFilter->filter(frame, filtered);
     cv::GaussianBlur(filtered, filtered, cv::Size(7, 7), 1.5, 1.5);
 
-    if (!start && curr_frame == 10) {
+    if (!start && currFrame == 10) {
       detector.init(filtered);
       start = true;
     } else if (start) {
-      cv::Mat binImage = detector.detectShip(filtered);
+      cv::Mat binImage = detector.thresholdImage(filtered, 10);
       cv::imshow("Binary", binImage);
 
       std::vector<std::vector<cv::Point2i>> contours;
       std::vector<cv::Vec4i> contoursHierarchy;
 
-      cv::findContours(binImage, contours, contoursHierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_NONE,
+      cv::findContours(binImage, contours, contoursHierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE,
                        cv::Point2i(0, 0));
-      int idx = 0;
+      detection::Candidates ships;
+      int numShipsDetected = detector.findShipsBlobs(contours, &ships);
 
-      for (int i = 0; i < contours.size(); ++i) {
-        if (contours[i].size() > contours[idx].size()) {
-          idx = i;
+      for (int i = 0; i < numShipsDetected; ++i) {
+        if (!contours[ships[i]].empty()) {
+          cv::Rect shipBounds = cv::boundingRect(contours[ships[i]]);
+          cv::rectangle(filtered, shipBounds, cv::Scalar(0, 255, 0));
         }
-      }
-
-      if (!contours.empty()) {
-        cv::Rect shipBounds = cv::boundingRect(contours[idx]);
-        cv::rectangle(filtered, shipBounds, cv::Scalar(0, 255, 0));
       }
     }
 
     cv::imshow("Video", filtered);
-    ++curr_frame;
+    ++currFrame;
 
     if (cv::waitKey(30) == 27)
     break;
