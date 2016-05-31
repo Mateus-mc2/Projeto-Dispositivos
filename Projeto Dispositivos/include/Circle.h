@@ -8,7 +8,7 @@ namespace geometry {
 class Circle {
  public:
   Circle(const cv::Point2d &center, double radius) : center_(center), radius_(radius) {}
-  ~Circle();
+  ~Circle() {}
 
   bool contains(const cv::Point2d &point);
 

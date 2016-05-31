@@ -16,6 +16,7 @@ class MapNode{
   bool contains(const cv::Point2f &point);
   // Get the inner node which the ship lies within. If it doesn't belong to any 
   int getInnerNode(const cv::Point2f &point);
+  void drawExternalNode(cv::Mat *frame);
 
  private:
   static const int kOutsideInnerNodes;

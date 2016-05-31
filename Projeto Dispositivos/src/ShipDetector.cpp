@@ -43,10 +43,39 @@ void ShipDetector::init(const cv::Mat &mapTemplate) {
   }
 
   fileStream.close();
+  fileStream.clear();
   this->mapROI = cv::Rect(topLeft, bottomRight);
   this->mapTemplate = mapTemplate(this->mapROI);
 
   // Set external nodes and inner nodes info.
+  std::vector<std::vector<cv::Point2i>> polygons(10);
+  fileStream.open(external_nodes_settings.c_str());
+
+  while (!fileStream.eof()) {
+    fileStream.getline(line.data(), line.size());
+    std::istringstream iss(std::string(line.data()));
+    std::vector<std::string> tokens;
+    std::copy(std::istream_iterator<std::string>(iss), std::istream_iterator<std::string>(),
+              std::back_inserter(tokens));
+
+    int idx = std::stoi(tokens[0]);
+    for (int i = 1; i < tokens.size(); ++i) {
+      int mid = tokens[i].find(",");
+      int x = std::stoi(tokens[i].substr(1, tokens[i].size() - mid));
+      int y = std::stoi(tokens[i].substr(mid + 1, tokens[i].size() - 1));
+
+      polygons[idx].push_back(cv::Point2i(x, y));
+    }
+  }
+
+  fileStream.close();
+  fileStream.clear();
+
+  for (int i = 0; i < polygons.size(); ++i) {
+    MapNode node(polygons[i], std::vector<geometry::Circle>());
+    node.drawExternalNode(&this->mapTemplate);
+    this->nodes.push_back(node);
+  }
 }
 
 cv::Mat ShipDetector::thresholdImage(const cv::Mat &frame, int threshold) {

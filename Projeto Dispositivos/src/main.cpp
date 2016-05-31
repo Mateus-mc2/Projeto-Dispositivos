@@ -38,14 +38,14 @@ int main(int argc, char* argv[]) {
   cv::namedWindow("Binary");
 
   detection::ShipDetector detector;
-  detection::MapNodes ROIs;
+  //std::array<cv::Rect, 2> ROIs;
   detection::CandidatesColors colors;
   bool start = false;
   int currFrame = 1;
   cv::VideoWriter outputVideo;
 
-  ROIs[0] = cv::Rect(200, 320, 100, 100);
-  ROIs[1] = cv::Rect(200, 20, 100, 100);
+  /*ROIs[0] = cv::Rect(200, 320, 100, 100);
+  ROIs[1] = cv::Rect(200, 20, 100, 100);*/
 
   colors[0] = cv::Vec3b(0, 255, 255);
 
@@ -61,6 +61,7 @@ int main(int argc, char* argv[]) {
     if (!start && currFrame == 10) {
       detector.init(filtered);
       cv::Size frameSize(detector.getMapROI().width, detector.getMapROI().height);
+
       outputVideo.open("C:/Users/Mateus/Desktop/demo.avi", CV_FOURCC('M', 'J', 'P', 'G'),
                        30, frameSize);
 
@@ -70,44 +71,16 @@ int main(int argc, char* argv[]) {
         return -1;
       }
 
-      std::vector<std::vector<cv::Point2f>> image_pts(10);
-      cv::Mat input_img;
-      cv::namedWindow("Input window");
-
-      input_img = cv::imread("C:\\Users\\Mateus\\Desktop\\MapWithoutGraph.png");
-      cv::resize(input_img, input_img, cv::Size(detector.getMapROI().width, detector.getMapROI().height));
-      cv::setMouseCallback("Input window", OnMouseCallback, static_cast<void*>(&image_pts));
-
-      for (int i = 0; i < image_pts.size(); ++i) {
-        std::cout << "Node " << i << std::endl;
-        while (true) {
-          /* cap >> input_img;*/
-          cv::imshow("Input window", input_img);
-          if (cv::waitKey(1000) == 27) break;
-        }
-
-        ++idx;
-      }
-
-      std::ofstream output("C:\\Users\\Mateus\\Desktop\\map_nodes.txt");
-
-      for (int i = 0; i < image_pts.size(); ++i) {
-        output << i;
-
-        for (int j = 0; j < image_pts[i].size(); ++j) {
-          output << " " << image_pts[i][j];
-        }
-
-        output << std::endl;
-      }
-
-      output.close();
-      cv::destroyWindow("Input window");
-
       start = true;
     } else if (start) {
       filtered = filtered(detector.getMapROI());
-      cv::Mat binImage = detector.thresholdImage(filtered, 10);
+      detection::MapNodes nodes = detector.getNodes();
+
+      for (int i = 0; i < nodes.size(); ++i) {
+        nodes[i].drawExternalNode(&filtered);
+      }
+
+      cv::Mat binImage = detector.thresholdImage(filtered, 5);
       cv::imshow("Binary", binImage);
 
       std::vector<std::vector<cv::Point2i>> contours;
@@ -118,9 +91,10 @@ int main(int argc, char* argv[]) {
       detection::Candidates ships;
       int numShipsDetected = detector.findShipsBlobs(contours, &ships);
 
-      for (int i = 0; i < ROIs.size(); ++i) {
+      /*for (int i = 0; i < ROIs.size(); ++i) {
         cv::rectangle(filtered, ROIs[i], cv::Scalar(255, 0, 0));
-      }
+      }*/
+
 
       cv::Scalar thresholdInterval(30, 30, 30), color(64, 180, 204);
       cv::Scalar min = color - thresholdInterval;
@@ -134,8 +108,8 @@ int main(int argc, char* argv[]) {
           cv::Rect shipBounds = cv::boundingRect(contours[ships[i]]);
           cv::Scalar mean = cv::mean(filtered(shipBounds), binImage(shipBounds) != 0);
 
-          for (int j = 0; j < ROIs.size(); ++j) {
-            if (ROIs[j].contains(shipCentroid) && mean >= min && max >= mean) {
+          for (int j = 0; j < nodes.size(); ++j) {
+            if (nodes[j].contains(shipCentroid) && mean >= min && max >= mean) {
               std::cout << mean << std::endl;
               cv::rectangle(filtered, shipBounds, cv::Scalar(0, 255, 0));
               break;

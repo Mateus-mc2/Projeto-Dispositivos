@@ -27,6 +27,7 @@ class ShipDetector {
                      Candidates *ships);
 
   cv::Rect getMapROI() const { return this->mapROI; }
+  MapNodes getNodes() const { return this->nodes; }
 
  private:
   void tryInsertBlob(const std::vector<std::vector<cv::Point2i>> &contours, int blob,
