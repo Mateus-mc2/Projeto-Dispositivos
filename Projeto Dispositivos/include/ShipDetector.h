@@ -6,15 +6,19 @@
 
 #include <opencv2/core.hpp>
 
+#include "MapNode.h"
+
 namespace detection {
 
-const int kNumShips = 1;
+const int kNumShips = 3;
 
 typedef std::array<int, kNumShips> Candidates;
+typedef std::vector<MapNode> MapNodes;
+typedef std::array<cv::Vec3b, kNumShips> CandidatesColors;
 
 class ShipDetector {
  public:
-  ShipDetector() : srcPoints(4), dstPoints(4) {}
+  ShipDetector() {}
   ~ShipDetector() {}
 
   void init(const cv::Mat &mapTemplate);
@@ -22,13 +26,17 @@ class ShipDetector {
   int findShipsBlobs(const std::vector<std::vector<cv::Point2i>> &contours,
                      Candidates *ships);
 
+  cv::Rect getMapROI() const { return this->mapROI; }
+
  private:
   void tryInsertBlob(const std::vector<std::vector<cv::Point2i>> &contours, int blob,
                      Candidates *ships, int begin, int end, int *numShipsDetected);
 
   cv::Mat mapTemplate;
-  std::vector<cv::Point2f> srcPoints;
-  std::vector<cv::Point2f> dstPoints;
+  cv::Rect mapROI;
+  MapNodes nodes;
+  /*std::vector<cv::Point2f> srcPoints;
+  std::vector<cv::Point2f> dstPoints;*/
 };
 
 }  // namespace detection

@@ -1,25 +1,58 @@
 #include "ShipDetector.h"
 
+#include <algorithm>
 #include <cassert>
+#include <fstream>
+#include <iostream>
 #include <vector>
 
 #include <opencv2/imgproc.hpp>
 
 namespace detection {
+namespace {
+
+static std::string map_settings = "../../../data/map_roi.txt";
+static std::string external_nodes_settings = "../../../data/map_ext_nodes.txt";
+static std::string inner_nodes_settings = "../../../data/map_inner_nodes.txt";
+
+}
 
 void ShipDetector::init(const cv::Mat &mapTemplate) {
-  this->mapTemplate = mapTemplate;
+  // Set map dimensions on camera.
+  std::ifstream fileStream(map_settings.c_str());
+  std::array<char, 256> line;
+  cv::Point2i topLeft, bottomRight;
 
-  this->srcPoints[0] = cv::Point2f(0.0, 0.0);
-  this->srcPoints[1] = cv::Point2f(static_cast<float>(mapTemplate.rows - 1), 0.0);
-  this->srcPoints[2] = cv::Point2f(0.0, static_cast<float>(mapTemplate.cols - 1));
-  this->srcPoints[3] = cv::Point2f(static_cast<float>(mapTemplate.rows - 1),
-                                   static_cast<float>(mapTemplate.cols - 1));
+  while (!fileStream.eof()) {
+    fileStream.getline(line.data(), line.size());
+
+    if (line[0] != ';') {
+      std::istringstream iss(std::string(line.data()));
+      std::vector<std::string> tokens;
+      std::copy(std::istream_iterator<std::string>(iss), std::istream_iterator<std::string>(),
+                std::back_inserter(tokens));
+
+      if (!tokens[0].compare("TL")) {
+        topLeft.x = std::stoi(tokens[1]);
+        topLeft.y = std::stoi(tokens[2]);
+      } else if (!tokens[0].compare("BR")) {
+        bottomRight.x = std::stoi(tokens[1]);
+        bottomRight.y = std::stoi(tokens[2]);
+      }
+    }
+  }
+
+  fileStream.close();
+  this->mapROI = cv::Rect(topLeft, bottomRight);
+  this->mapTemplate = mapTemplate(this->mapROI);
+
+  // Set external nodes and inner nodes info.
 }
 
 cv::Mat ShipDetector::thresholdImage(const cv::Mat &frame, int threshold) {
   // TODO(Mateus): test detection with homography later.
   cv::Mat diff = frame - this->mapTemplate;
+  cv::blur(diff, diff, cv::Size(7, 7));
   cv::cvtColor(diff, diff, CV_BGR2GRAY);
   cv::threshold(diff, diff, threshold, 255, CV_THRESH_BINARY);
 
