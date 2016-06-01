@@ -24,7 +24,7 @@ class ShipDetector {
   void init(const cv::Mat &mapTemplate);
   cv::Mat thresholdImage(const cv::Mat &frame, int threshold);
   int findShipsBlobs(const std::vector<std::vector<cv::Point2i>> &contours,
-                     Candidates *ships);
+                     const cv::Mat &binImage, Candidates *ships);
 
   cv::Rect getMapROI() const { return this->mapROI; }
   MapNodes getNodes() const { return this->nodes; }

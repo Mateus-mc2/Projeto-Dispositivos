@@ -15,6 +15,14 @@ static std::string map_settings = "../../../data/map_roi.txt";
 static std::string external_nodes_settings = "../../../data/map_ext_nodes.txt";
 static std::string inner_nodes_settings = "../../../data/map_inner_nodes.txt";
 
+cv::Scalar thresholdInterval(30, 30, 30), color(200, 180, 160);
+cv::Scalar min = color - thresholdInterval;
+cv::Scalar max = color + thresholdInterval;
+
+bool operator >=(const cv::Scalar &a, const cv::Scalar &b) {
+  return a(0) >= b(0) && a(1) >= b(1) && a(2) >= b(2);
+}
+
 }
 
 void ShipDetector::init(const cv::Mat &mapTemplate) {
@@ -82,6 +90,7 @@ cv::Mat ShipDetector::thresholdImage(const cv::Mat &frame, int threshold) {
   // TODO(Mateus): test detection with homography later.
   cv::Mat diff = frame - this->mapTemplate;
   cv::blur(diff, diff, cv::Size(7, 7));
+  cv::medianBlur(diff, diff, 7);
   cv::cvtColor(diff, diff, CV_BGR2GRAY);
   cv::threshold(diff, diff, threshold, 255, CV_THRESH_BINARY);
 
@@ -89,12 +98,17 @@ cv::Mat ShipDetector::thresholdImage(const cv::Mat &frame, int threshold) {
 }
 
 int ShipDetector::findShipsBlobs(const std::vector<std::vector<cv::Point2i>> &contours,
-                                 Candidates *ships) {
+                                 const cv::Mat &binImage, Candidates *ships) {
   ships->fill(-1);
   int numShipsDetected = 0;
 
   for (size_t i = 0; i < contours.size(); ++i) {
-    this->tryInsertBlob(contours, static_cast<int>(i), ships, 0, kNumShips - 1, &numShipsDetected);
+    cv::Rect bounds = cv::boundingRect(contours[i]);
+    cv::Scalar mean = cv::mean(this->mapTemplate(bounds), binImage(bounds) != 0);
+
+    if (mean >= min && max >= mean) {
+      this->tryInsertBlob(contours, static_cast<int>(i), ships, 0, kNumShips - 1, &numShipsDetected);
+    }
   }
 
   return numShipsDetected;
