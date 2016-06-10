@@ -34,16 +34,10 @@ int main(int argc, char* argv[]) {
   cv::namedWindow("Binary");
 
   detection::ShipDetector detector;
-  //std::array<cv::Rect, 2> ROIs;
-  detection::CandidatesColors colors;
   bool start = false;
   int currFrame = 1;
   cv::VideoWriter outputVideo;
-
-  /*ROIs[0] = cv::Rect(200, 320, 100, 100);
-  ROIs[1] = cv::Rect(200, 20, 100, 100);*/
-
-  colors[0] = cv::Vec3b(0, 255, 255);
+  cv::Mat H;
 
   while (true) {
     cv::Mat frame, filtered;
@@ -53,12 +47,13 @@ int main(int argc, char* argv[]) {
 
     ptrFilter->filter(frame, filtered);
     cv::GaussianBlur(filtered, filtered, cv::Size(7, 7), 1.5, 1.5);
+    cv::cvtColor(filtered, filtered, CV_BGR2HSV);
 
     if (!start && currFrame == 10) {
       detector.init(filtered);
+      H = detector.getHomography().inv();
 
-      filtered = filtered(detector.getMapROI());
-      outputVideo.open("C:/Users/Mateus/Desktop/demo.wmp", CV_FOURCC('M', 'J', 'P', 'G'),
+      outputVideo.open("C:/Users/Mateus/Desktop/demo.avi", CV_FOURCC('M', 'J', 'P', 'G'),
                        30, filtered.size());
 
       if (!outputVideo.isOpened()) {
@@ -69,12 +64,12 @@ int main(int argc, char* argv[]) {
 
       start = true;
     } else if (start) {
-      filtered = filtered(detector.getMapROI());
+      cv::warpPerspective(filtered, filtered, H, filtered.size());
       detection::MapNodes nodes = detector.getNodes();
 
-      for (int i = 0; i < nodes.size(); ++i) {
+      /*for (int i = 0; i < nodes.size(); ++i) {
         nodes[i].drawExternalNode(&filtered);
-      }
+      }*/
 
       cv::Mat binImage = detector.thresholdImage(filtered, 5);
       cv::imshow("Binary", binImage);
@@ -108,7 +103,7 @@ int main(int argc, char* argv[]) {
       }
     }
 
-    cv::imshow("Video", filtered);
+    cv::imshow("Video", frame);
     outputVideo.write(filtered);
     ++currFrame;
 

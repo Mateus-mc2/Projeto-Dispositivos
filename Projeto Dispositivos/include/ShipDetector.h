@@ -26,7 +26,8 @@ class ShipDetector {
   int findShipsBlobs(const std::vector<std::vector<cv::Point2i>> &contours,
                      const cv::Mat &binImage, Candidates *ships);
 
-  cv::Rect getMapROI() const { return this->mapROI; }
+  //cv::Rect getMapROI() const { return this->mapROI; }
+  cv::Mat getHomography() const { return this->H; }
   MapNodes getNodes() const { return this->nodes; }
 
  private:
@@ -34,7 +35,7 @@ class ShipDetector {
                      Candidates *ships, int begin, int end, int *numShipsDetected);
 
   cv::Mat mapTemplate;
-  cv::Rect mapROI;
+  cv::Mat H;
   MapNodes nodes;
   /*std::vector<cv::Point2f> srcPoints;
   std::vector<cv::Point2f> dstPoints;*/

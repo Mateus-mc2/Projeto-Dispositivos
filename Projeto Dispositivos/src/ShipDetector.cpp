@@ -11,7 +11,7 @@
 namespace detection {
 namespace {
 
-static std::string map_settings = "../../../data/map_roi.txt";
+static std::string map_settings = "../../../data/map_homography.txt";
 static std::string external_nodes_settings = "../../../data/map_ext_nodes.txt";
 static std::string inner_nodes_settings = "../../../data/map_inner_nodes.txt";
 
@@ -23,37 +23,67 @@ bool operator >=(const cv::Scalar &a, const cv::Scalar &b) {
   return a(0) >= b(0) && a(1) >= b(1) && a(2) >= b(2);
 }
 
+const int kHueInterval = 10;
+const int kPlayerOneHue = 60;
+const int kPlayerTwoHue = 0;
+const int kPlayerThreeHue = 240;
+
+cv::Mat ThresholdPlayerShip(const cv::Mat &frame, int player) {
+  cv::Scalar lowerBound, upperBound;
+
+  switch (player) {
+    case 1:
+      lowerBound = cv::Scalar(kPlayerOneHue - kHueInterval, 50, 50);
+      upperBound = cv::Scalar(kPlayerOneHue + kHueInterval, 255, 255);
+      break;
+
+    case 2:
+      lowerBound = cv::Scalar(kPlayerTwoHue - kHueInterval, 50, 50);
+      upperBound = cv::Scalar(kPlayerTwoHue + kHueInterval, 255, 255);
+      break;
+
+    case 3:
+      upperBound = cv::Scalar(kPlayerThreeHue + kHueInterval, 50, 50);
+      lowerBound = cv::Scalar(kPlayerThreeHue - kHueInterval, 255, 255);
+      break;
+
+    default:
+      lowerBound = cv::Scalar(0, 0, 0);
+      upperBound = cv::Scalar(255, 255, 255);
+      break;
+  }
+
+  cv::Mat mask;
+  cv::inRange(frame, lowerBound, upperBound, mask);
+
+  return mask;
+}
+
 }
 
 void ShipDetector::init(const cv::Mat &mapTemplate) {
   // Set map dimensions on camera.
   std::ifstream fileStream(map_settings.c_str());
   std::array<char, 256> line;
-  cv::Point2i topLeft, bottomRight;
+  std::vector<float> entries;
 
   while (!fileStream.eof()) {
     fileStream.getline(line.data(), line.size());
+    std::istringstream iss(std::string(line.data()));
+    std::vector<std::string> tokens;
+    std::copy(std::istream_iterator<std::string>(iss), std::istream_iterator<std::string>(),
+              std::back_inserter(tokens));
 
-    if (line[0] != ';') {
-      std::istringstream iss(std::string(line.data()));
-      std::vector<std::string> tokens;
-      std::copy(std::istream_iterator<std::string>(iss), std::istream_iterator<std::string>(),
-                std::back_inserter(tokens));
-
-      if (!tokens[0].compare("TL")) {
-        topLeft.x = std::stoi(tokens[1]);
-        topLeft.y = std::stoi(tokens[2]);
-      } else if (!tokens[0].compare("BR")) {
-        bottomRight.x = std::stoi(tokens[1]);
-        bottomRight.y = std::stoi(tokens[2]);
-      }
-    }
+    for (int i = 0; i < tokens.size(); ++i)
+      entries.push_back(std::stof(tokens[i]));
   }
 
   fileStream.close();
   fileStream.clear();
-  this->mapROI = cv::Rect(topLeft, bottomRight);
-  this->mapTemplate = mapTemplate(this->mapROI);
+  this->H = (cv::Mat_<float>(3, 3) << entries[0], entries[1], entries[2],
+                                      entries[3], entries[4], entries[5],
+                                      entries[6], entries[7], entries[8]);
+  cv::warpPerspective(mapTemplate, this->mapTemplate, H.inv(), mapTemplate.size());
 
   // Set external nodes and inner nodes info.
   std::vector<std::vector<cv::Point2i>> polygons(10);
@@ -81,20 +111,30 @@ void ShipDetector::init(const cv::Mat &mapTemplate) {
 
   for (int i = 0; i < polygons.size(); ++i) {
     MapNode node(polygons[i], std::vector<geometry::Circle>());
-    node.drawExternalNode(&this->mapTemplate);
+    //node.drawExternalNode(&this->mapTemplate);
     this->nodes.push_back(node);
   }
 }
 
 cv::Mat ShipDetector::thresholdImage(const cv::Mat &frame, int threshold) {
   // TODO(Mateus): test detection with homography later.
-  cv::Mat diff = frame - this->mapTemplate;
-  cv::blur(diff, diff, cv::Size(7, 7));
-  cv::medianBlur(diff, diff, 7);
-  cv::cvtColor(diff, diff, CV_BGR2GRAY);
-  cv::threshold(diff, diff, threshold, 255, CV_THRESH_BINARY);
+  //cv::Mat diff = frame - this->mapTemplate;
+  //cv::blur(diff, diff, cv::Size(7, 7));
+  //cv::medianBlur(diff, diff, 7);
 
-  return diff;
+  cv::Mat mask1, mask2, mask3;
+
+  mask1 = ThresholdPlayerShip(frame, 1);
+  mask2 = ThresholdPlayerShip(frame, 2);
+  mask3 = ThresholdPlayerShip(frame, 3);
+
+  cv::Mat result = mask1 | mask2 | mask3;
+
+  /*cv::cvtColor(diff, diff, CV_BGR2GRAY);
+  cv::threshold(diff, diff, threshold, 255, CV_THRESH_BINARY);*/
+  //return diff;
+
+  return result;
 }
 
 int ShipDetector::findShipsBlobs(const std::vector<std::vector<cv::Point2i>> &contours,
