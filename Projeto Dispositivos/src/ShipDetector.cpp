@@ -12,47 +12,16 @@ namespace detection {
 namespace {
 
 static std::string map_settings = "../../../data/map_homography.txt";
-static std::string external_nodes_settings = "../../../data/map_ext_nodes.txt";
-static std::string inner_nodes_settings = "../../../data/map_inner_nodes.txt";
-
-cv::Scalar thresholdInterval(30, 30, 30), color(200, 180, 160);
-cv::Scalar min = color - thresholdInterval;
-cv::Scalar max = color + thresholdInterval;
+//static std::string external_nodes_settings = "../../../data/map_ext_nodes.txt";
+//static std::string inner_nodes_settings = "../../../data/map_inner_nodes.txt";
+static std::string nodes_settings = "../../../data/map_nodes.txt";
+static std::string threshold_settings = "../../../data/player_thresholds.txt";
 
 bool operator >=(const cv::Scalar &a, const cv::Scalar &b) {
   return a(0) >= b(0) && a(1) >= b(1) && a(2) >= b(2);
 }
 
-const int kHueInterval = 10;
-const int kPlayerOneHue = 60;
-const int kPlayerTwoHue = 0;
-const int kPlayerThreeHue = 240;
-
-cv::Mat ThresholdPlayerShip(const cv::Mat &frame, int player) {
-  cv::Scalar lowerBound, upperBound;
-
-  switch (player) {
-    case 1:
-      lowerBound = cv::Scalar(kPlayerOneHue - kHueInterval, 50, 50);
-      upperBound = cv::Scalar(kPlayerOneHue + kHueInterval, 255, 255);
-      break;
-
-    case 2:
-      lowerBound = cv::Scalar(kPlayerTwoHue - kHueInterval, 50, 50);
-      upperBound = cv::Scalar(kPlayerTwoHue + kHueInterval, 255, 255);
-      break;
-
-    case 3:
-      upperBound = cv::Scalar(kPlayerThreeHue + kHueInterval, 50, 50);
-      lowerBound = cv::Scalar(kPlayerThreeHue - kHueInterval, 255, 255);
-      break;
-
-    default:
-      lowerBound = cv::Scalar(0, 0, 0);
-      upperBound = cv::Scalar(255, 255, 255);
-      break;
-  }
-
+cv::Mat ThresholdPlayerShip(const cv::Mat &frame, const cv::Scalar &lowerBound, const cv::Scalar &upperBound) {
   cv::Mat mask;
   cv::inRange(frame, lowerBound, upperBound, mask);
 
@@ -86,7 +55,7 @@ void ShipDetector::init(const cv::Mat &mapTemplate) {
   cv::warpPerspective(mapTemplate, this->mapTemplate, H.inv(), mapTemplate.size());
 
   // Set external nodes and inner nodes info.
-  std::vector<std::vector<cv::Point2i>> polygons(10);
+  /*std::vector<std::vector<cv::Point2i>> polygons(10);
   fileStream.open(external_nodes_settings.c_str());
 
   while (!fileStream.eof()) {
@@ -98,7 +67,7 @@ void ShipDetector::init(const cv::Mat &mapTemplate) {
 
     int idx = std::stoi(tokens[0]);
     for (int i = 1; i < tokens.size(); ++i) {
-      int mid = tokens[i].find(",");
+      int mid = static_cast<int>(tokens[i].find(","));
       int x = std::stoi(tokens[i].substr(1, tokens[i].size() - mid));
       int y = std::stoi(tokens[i].substr(mid + 1, tokens[i].size() - 1));
 
@@ -107,48 +76,133 @@ void ShipDetector::init(const cv::Mat &mapTemplate) {
   }
 
   fileStream.close();
+  fileStream.clear();*/
+
+  std::vector<geometry::Circle> circles;
+  //fileStream.open(inner_nodes_settings.c_str());
+  fileStream.open(nodes_settings.c_str());
+
+  while (!fileStream.eof()) {
+    fileStream.getline(line.data(), line.size());
+    std::istringstream iss(std::string(line.data()));
+    std::vector<std::string> tokens;
+    std::copy(std::istream_iterator<std::string>(iss), std::istream_iterator<std::string>(),
+              std::back_inserter(tokens));
+
+    int idx = std::stoi(tokens[0]);
+    float x = std::stof(tokens[1].substr(1, tokens[1].size() - 1));
+    float y = std::stof(tokens[2].substr(0, tokens[2].size() - 1));
+    int radius = std::stoi(tokens[3]);
+
+    circles.push_back(geometry::Circle(cv::Point2f(x, y), radius, idx));
+  }
+
+  fileStream.close();
   fileStream.clear();
 
-  for (int i = 0; i < polygons.size(); ++i) {
-    MapNode node(polygons[i], std::vector<geometry::Circle>());
-    //node.drawExternalNode(&this->mapTemplate);
-    this->nodes.push_back(node);
+  for (size_t i = 0; i < circles.size(); ++i) {
+    circles[i].drawMapNode(&this->mapTemplate);
+    this->nodes.push_back(circles[i]);
   }
+
+  //for (int i = 0; i < polygons.size(); ++i) {
+  //  MapNode node(polygons[i]);
+
+  //  for (size_t j = 0; j < circles.size(); ++j) {
+  //    if (node.contains(circles[j].center())) {
+  //      node.pushBackInnerNode(circles[j]);
+  //    }
+  //  }
+
+  //  //node.drawExternalNode(&this->mapTemplate);
+  //  this->nodes.push_back(node);
+  //}
+
+
+  fileStream.open(threshold_settings.c_str());
+
+  while (!fileStream.eof()) {
+    fileStream.getline(line.data(), line.size());
+    std::istringstream iss(std::string(line.data()));
+    std::vector<std::string> tokens;
+    std::copy(std::istream_iterator<std::string>(iss), std::istream_iterator<std::string>(),
+      std::back_inserter(tokens));
+
+    for (int i = 1; i < tokens.size(); ++i) {
+      size_t current;
+      size_t next = 0;
+      int idx = 0;
+      std::array<int, 3> bounds;
+
+      do {
+        current = next + 1;
+        next = tokens[i].find_first_of(",]", current);
+        assert(idx < bounds.size());
+        bounds[idx++] = std::stoi(tokens[i].substr(current, next - current));
+      } while (next != tokens[i].size() - 1);
+
+      cv::Scalar bound(bounds[0], bounds[1], bounds[2]);
+
+      if (!tokens[0].compare("Y")) {
+        this->thresholdBounds[0].push_back(bound);
+      } else if (!tokens[0].compare("G")) {
+        this->thresholdBounds[1].push_back(bound);
+      } else {
+        this->thresholdBounds[2].push_back(bound);
+      }
+    }
+  }
+
+  fileStream.close();
+  fileStream.clear();
 }
 
-cv::Mat ShipDetector::thresholdImage(const cv::Mat &frame, int threshold) {
+cv::Mat ShipDetector::thresholdImage(const cv::Mat &frame) {
   // TODO(Mateus): test detection with homography later.
-  //cv::Mat diff = frame - this->mapTemplate;
-  //cv::blur(diff, diff, cv::Size(7, 7));
-  //cv::medianBlur(diff, diff, 7);
+  cv::Mat diff = frame - this->mapTemplate;
+  cv::blur(diff, diff, cv::Size(7, 7));
+  cv::medianBlur(diff, diff, 7);
+  cv::cvtColor(diff, diff, CV_HSV2BGR);
+  cv::cvtColor(diff, diff, CV_BGR2GRAY);
+  cv::threshold(diff, diff, 10, 255, CV_THRESH_BINARY);
 
   cv::Mat mask1, mask2, mask3;
 
-  mask1 = ThresholdPlayerShip(frame, 1);
-  mask2 = ThresholdPlayerShip(frame, 2);
-  mask3 = ThresholdPlayerShip(frame, 3);
+  mask1.create(diff.size(), CV_8U);
+  mask2.create(diff.size(), CV_8U);
+  mask3.create(diff.size(), CV_8U);
 
-  cv::Mat result = mask1 | mask2 | mask3;
+  mask1 = ThresholdPlayerShip(frame, this->thresholdBounds[0][0], this->thresholdBounds[0][1]);
+  mask2 = ThresholdPlayerShip(frame, this->thresholdBounds[1][0], this->thresholdBounds[1][1]);
+  mask3 = ThresholdPlayerShip(frame, this->thresholdBounds[2][0], this->thresholdBounds[2][1]);
 
-  /*cv::cvtColor(diff, diff, CV_BGR2GRAY);
-  cv::threshold(diff, diff, threshold, 255, CV_THRESH_BINARY);*/
-  //return diff;
-
+  cv::Mat result = (mask1 | mask2 | mask3) & diff;
   return result;
 }
 
 int ShipDetector::findShipsBlobs(const std::vector<std::vector<cv::Point2i>> &contours,
-                                 const cv::Mat &binImage, Candidates *ships) {
+                                 const cv::Mat &frame, const cv::Mat &binImage, Candidates *ships) {
   ships->fill(-1);
   int numShipsDetected = 0;
 
   for (size_t i = 0; i < contours.size(); ++i) {
     cv::Rect bounds = cv::boundingRect(contours[i]);
-    cv::Scalar mean = cv::mean(this->mapTemplate(bounds), binImage(bounds) != 0);
+    cv::Scalar mean = cv::mean(frame(bounds), binImage(bounds) != 0);
 
-    if (mean >= min && max >= mean) {
+    if (mean >= this->thresholdBounds[0][0] && this->thresholdBounds[0][1] >= mean) {
       this->tryInsertBlob(contours, static_cast<int>(i), ships, 0, kNumShips - 1, &numShipsDetected);
-    }
+      /*if ((*ships)[0] == -1 || contours[(*ships)[0]].size() < contours[i].size()) {
+        (*ships)[0] = i;
+      }*/
+    } /*else if (mean >= this->thresholdBounds[1][0] && this->thresholdBounds[1][1] >= mean) {
+      if ((*ships)[1] == -1 || contours[(*ships)[1]].size() < contours[i].size()) {
+        (*ships)[1] = i;
+      }
+    } else if (mean >= this->thresholdBounds[2][0] && this->thresholdBounds[2][1] >= mean) {
+      if ((*ships)[2] == -1 || contours[(*ships)[2]].size() < contours[i].size()) {
+        (*ships)[2] = i;
+      }
+    }*/
   }
 
   return numShipsDetected;

@@ -3,6 +3,7 @@
 namespace connection {
 
 void ClientSocket::Close() {
+  this->Shutdown(Mode::kBoth);
   closesocket(this->connection_socket_);
   WSACleanup();
   this->closed_ = true;
@@ -73,7 +74,7 @@ void ClientSocket::Send(const std::string &message) {
     throw SocketException("Failed to send message to client (error " + error + ").");
   }
 
-  this->Shutdown(connection::Mode::kSend);
+  //this->Shutdown(connection::Mode::kSend);
 }
 
 

@@ -9,14 +9,14 @@ namespace detection {
 
 class MapNode{
  public:
-  MapNode(const std::vector<cv::Point2i> &vertices,
-          const std::vector<geometry::Circle> &inner_nodes) : vertices_(vertices),
-                                                              inner_nodes_(inner_nodes) {}
+  MapNode(const std::vector<cv::Point2i> &vertices) : vertices_(vertices) {}
 
   bool contains(const cv::Point2f &point);
+  void pushBackInnerNode(const geometry::Circle &circle);
   // Get the inner node which the ship lies within. If it doesn't belong to any 
   int getInnerNode(const cv::Point2f &point);
   void drawExternalNode(cv::Mat *frame);
+  void drawInnerNodes(cv::Mat *frame);
 
  private:
   static const int kOutsideInnerNodes;

@@ -1,6 +1,8 @@
 #include <chrono>
 #include <fstream>
 #include <iostream>
+#include <mutex>
+#include <thread>
 #include <vector>
 
 #include <opencv2/highgui.hpp>
@@ -11,13 +13,29 @@
 #include <opencv2/ximgproc.hpp>
 
 #include "ShipDetector.h"
+#include "ClientSocket.h"
 
 int idx = 0;
+const std::string kDefaultPort = "27015";
+const std::string kServerHost = "localhost";
+std::mutex guard;
 
 void OnMouseCallback(int mouse_event, int x, int y, int flags, void *param) {
   if (mouse_event == CV_EVENT_LBUTTONDOWN) {
     std::vector<std::vector<cv::Point2f>> *ptr = static_cast<std::vector<std::vector<cv::Point2f>>*>(param);
-    (*ptr)[idx].push_back(cv::Point2f(x, y));
+    (*ptr)[idx].push_back(cv::Point2f(static_cast<float>(x), static_cast<float>(y)));
+  }
+}
+
+void SendInfoToPlayer(connection::ClientSocket * socket, const geometry::Circle &node) {
+  try {
+    guard.lock();
+    /*socket->Connect();*/
+    socket->Send("  ALOU! Navio bisonho encontrado no circulo " + std::to_string(node.idx()) + ".\n");
+    //socket->Close();
+    guard.unlock();
+  } catch (connection::SocketException &e) {
+    std::cout << "  Exception caught (SocketException): " << e.what() << std::endl;
   }
 }
 
@@ -39,6 +57,11 @@ int main(int argc, char* argv[]) {
   cv::VideoWriter outputVideo;
   cv::Mat H;
 
+  connection::ClientSocket socket(kServerHost, kDefaultPort);
+  std::thread connectionThread;
+
+  socket.Connect();
+
   while (true) {
     cv::Mat frame, filtered;
     capture >> frame;
@@ -53,7 +76,7 @@ int main(int argc, char* argv[]) {
       detector.init(filtered);
       H = detector.getHomography().inv();
 
-      outputVideo.open("C:/Users/Mateus/Desktop/demo.avi", CV_FOURCC('M', 'J', 'P', 'G'),
+      outputVideo.open("C:/Users/Mateus de Freitas/Desktop/demo.avi", CV_FOURCC('M', 'J', 'P', 'G'),
                        30, filtered.size());
 
       if (!outputVideo.isOpened()) {
@@ -67,11 +90,12 @@ int main(int argc, char* argv[]) {
       cv::warpPerspective(filtered, filtered, H, filtered.size());
       detection::MapNodes nodes = detector.getNodes();
 
-      /*for (int i = 0; i < nodes.size(); ++i) {
-        nodes[i].drawExternalNode(&filtered);
-      }*/
+      for (int i = 0; i < nodes.size(); ++i) {
+        //nodes[i].drawExternalNode(&filtered);
+        nodes[i].drawMapNode(&filtered);
+      }
 
-      cv::Mat binImage = detector.thresholdImage(filtered, 5);
+      cv::Mat binImage = detector.thresholdImage(filtered);
       cv::imshow("Binary", binImage);
 
       std::vector<std::vector<cv::Point2i>> contours;
@@ -80,7 +104,7 @@ int main(int argc, char* argv[]) {
       cv::findContours(binImage, contours, contoursHierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE,
                        cv::Point2i(0, 0));
       detection::Candidates ships;
-      int numShipsDetected = detector.findShipsBlobs(contours, binImage, &ships);
+      int numShipsDetected = detector.findShipsBlobs(contours, filtered, binImage, &ships);
 
       /*for (int i = 0; i < ROIs.size(); ++i) {
         cv::rectangle(filtered, ROIs[i], cv::Scalar(255, 0, 0));
@@ -94,16 +118,20 @@ int main(int argc, char* argv[]) {
 
           for (int j = 0; j < nodes.size(); ++j) {
             if (nodes[j].contains(shipCentroid)) {
-              cv::Rect shipBounds = cv::boundingRect(contours[ships[i]]);
-              cv::rectangle(filtered, shipBounds, cv::Scalar(0, 255, 0));
+              //connectionThread = std::thread(SendInfoToPlayer, &socket, nodes[j]);
+              SendInfoToPlayer(&socket, nodes[j]);
               break;
+              /*cv::Rect shipBounds = cv::boundingRect(contours[ships[i]]);
+              cv::rectangle(filtered, shipBounds, cv::Scalar(0, 255, 0));
+              break;*/
             }
           }
         }
       }
     }
 
-    cv::imshow("Video", frame);
+    cv::cvtColor(filtered, filtered, CV_HSV2BGR);
+    cv::imshow("Video", filtered);
     outputVideo.write(filtered);
     ++currFrame;
 
@@ -111,6 +139,7 @@ int main(int argc, char* argv[]) {
     break;
   }
 
+  socket.Close();
   capture.release();
   outputVideo.release();
   cv::destroyAllWindows();

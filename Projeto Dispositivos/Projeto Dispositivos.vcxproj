@@ -129,6 +129,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\Circle.cpp" />
+    <ClCompile Include="src\ClientSocket.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\MapNode.cpp" />
     <ClCompile Include="src\ServerSocket.cpp" />
@@ -136,6 +137,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\Circle.h" />
+    <ClInclude Include="include\ClientSocket.h" />
     <ClInclude Include="include\MapNode.h" />
     <ClInclude Include="include\ServerSocket.h" />
     <ClInclude Include="include\ShipDetector.h" />

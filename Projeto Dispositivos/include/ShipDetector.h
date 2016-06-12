@@ -6,14 +6,16 @@
 
 #include <opencv2/core.hpp>
 
-#include "MapNode.h"
+#include "Circle.h"
+//#include "MapNode.h"
 
 namespace detection {
 
 const int kNumShips = 3;
 
 typedef std::array<int, kNumShips> Candidates;
-typedef std::vector<MapNode> MapNodes;
+//typedef std::vector<MapNode> MapNodes;
+typedef std::vector<geometry::Circle> MapNodes;
 typedef std::array<cv::Vec3b, kNumShips> CandidatesColors;
 
 class ShipDetector {
@@ -22,9 +24,9 @@ class ShipDetector {
   ~ShipDetector() {}
 
   void init(const cv::Mat &mapTemplate);
-  cv::Mat thresholdImage(const cv::Mat &frame, int threshold);
+  cv::Mat thresholdImage(const cv::Mat &frame);
   int findShipsBlobs(const std::vector<std::vector<cv::Point2i>> &contours,
-                     const cv::Mat &binImage, Candidates *ships);
+                     const cv::Mat &frame, const cv::Mat &binImage, Candidates *ships);
 
   //cv::Rect getMapROI() const { return this->mapROI; }
   cv::Mat getHomography() const { return this->H; }
@@ -37,6 +39,7 @@ class ShipDetector {
   cv::Mat mapTemplate;
   cv::Mat H;
   MapNodes nodes;
+  std::array<std::vector<cv::Scalar>, 3> thresholdBounds;
   /*std::vector<cv::Point2f> srcPoints;
   std::vector<cv::Point2f> dstPoints;*/
 };
