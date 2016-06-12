@@ -15,7 +15,7 @@ void MapNode::pushBackInnerNode(const geometry::Circle &circle) {
 int MapNode::getInnerNode(const cv::Point2f &point) {
   for (int i = 0; i < this->inner_nodes_.size(); ++i) {
     if (this->inner_nodes_[i].contains(point)) {
-      return i;
+      return this->inner_nodes_[i].idx();
     }
   }
 

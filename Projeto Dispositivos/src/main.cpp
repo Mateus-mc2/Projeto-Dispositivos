@@ -27,14 +27,15 @@ void OnMouseCallback(int mouse_event, int x, int y, int flags, void *param) {
   }
 }
 
-void SendInfoToPlayer(connection::ClientSocket * socket, const geometry::Circle &node) {
+void SendInfoToPlayer(connection::ClientSocket *socket, int ship, int node, int innerNode) {
   try {
-    guard.lock();
-    /*socket->Connect();*/
-    socket->Send("  ALOU! Navio bisonho encontrado no circulo " + std::to_string(node.idx()) + ".\n");
-    //socket->Close();
-    guard.unlock();
+    //guard.lock();
+    socket->Connect();
+    socket->Send(std::to_string(ship) + "," + std::to_string(node) + "," + std::to_string(innerNode) + "\n");
+    socket->Close();
+    //guard.unlock();
   } catch (connection::SocketException &e) {
+    //socket->Close();
     std::cout << "  Exception caught (SocketException): " << e.what() << std::endl;
   }
 }
@@ -60,7 +61,7 @@ int main(int argc, char* argv[]) {
   connection::ClientSocket socket(kServerHost, kDefaultPort);
   std::thread connectionThread;
 
-  socket.Connect();
+  /*socket.Connect();*/
 
   while (true) {
     cv::Mat frame, filtered;
@@ -91,8 +92,9 @@ int main(int argc, char* argv[]) {
       detection::MapNodes nodes = detector.getNodes();
 
       for (int i = 0; i < nodes.size(); ++i) {
-        //nodes[i].drawExternalNode(&filtered);
-        nodes[i].drawMapNode(&filtered);
+        nodes[i].drawExternalNode(&filtered);
+        nodes[i].drawInnerNodes(&filtered);
+        //nodes[i].drawMapNode(&filtered);
       }
 
       cv::Mat binImage = detector.thresholdImage(filtered);
@@ -104,14 +106,14 @@ int main(int argc, char* argv[]) {
       cv::findContours(binImage, contours, contoursHierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE,
                        cv::Point2i(0, 0));
       detection::Candidates ships;
-      int numShipsDetected = detector.findShipsBlobs(contours, filtered, binImage, &ships);
+      detector.findShipsBlobs(contours, filtered, binImage, &ships);
 
       /*for (int i = 0; i < ROIs.size(); ++i) {
         cv::rectangle(filtered, ROIs[i], cv::Scalar(255, 0, 0));
       }*/
 
-      for (int i = 0; i < numShipsDetected; ++i) {
-        if (!contours[ships[i]].empty()) {
+      for (int i = 0; i < ships.size(); ++i) {
+        if (ships[i] != -1) {
           cv::Moments shipMoments = cv::moments(contours[ships[i]]);
           cv::Point2i shipCentroid = cv::Point2i(cvRound(shipMoments.m10 / shipMoments.m00),
                                                  cvRound(shipMoments.m01 / shipMoments.m00));
@@ -119,7 +121,7 @@ int main(int argc, char* argv[]) {
           for (int j = 0; j < nodes.size(); ++j) {
             if (nodes[j].contains(shipCentroid)) {
               //connectionThread = std::thread(SendInfoToPlayer, &socket, nodes[j]);
-              SendInfoToPlayer(&socket, nodes[j]);
+              SendInfoToPlayer(&socket, i + 1, j + 1, nodes[j].getInnerNode(shipCentroid));
               break;
               /*cv::Rect shipBounds = cv::boundingRect(contours[ships[i]]);
               cv::rectangle(filtered, shipBounds, cv::Scalar(0, 255, 0));
@@ -139,7 +141,7 @@ int main(int argc, char* argv[]) {
     break;
   }
 
-  socket.Close();
+  //socket.Close();
   capture.release();
   outputVideo.release();
   cv::destroyAllWindows();

@@ -6,16 +6,16 @@
 
 #include <opencv2/core.hpp>
 
-#include "Circle.h"
-//#include "MapNode.h"
+//#include "Circle.h"
+#include "MapNode.h"
 
 namespace detection {
 
 const int kNumShips = 3;
 
 typedef std::array<int, kNumShips> Candidates;
-//typedef std::vector<MapNode> MapNodes;
-typedef std::vector<geometry::Circle> MapNodes;
+typedef std::vector<MapNode> MapNodes;
+//typedef std::vector<geometry::Circle> MapNodes;
 typedef std::array<cv::Vec3b, kNumShips> CandidatesColors;
 
 class ShipDetector {
@@ -33,6 +33,8 @@ class ShipDetector {
   MapNodes getNodes() const { return this->nodes; }
 
  private:
+  void tryInsertBlob(const std::vector<std::vector<cv::Point2i>> &contours, size_t blob,
+                     Candidates *ships, size_t ship);
   void tryInsertBlob(const std::vector<std::vector<cv::Point2i>> &contours, int blob,
                      Candidates *ships, int begin, int end, int *numShipsDetected);
 

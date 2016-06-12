@@ -9,7 +9,7 @@ namespace detection {
 
 class MapNode{
  public:
-  MapNode(const std::vector<cv::Point2i> &vertices) : vertices_(vertices) {}
+  explicit MapNode(const std::vector<cv::Point2i> &vertices) : vertices_(vertices) {}
 
   bool contains(const cv::Point2f &point);
   void pushBackInnerNode(const geometry::Circle &circle);
