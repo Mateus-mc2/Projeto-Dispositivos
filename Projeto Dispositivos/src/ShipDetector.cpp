@@ -52,7 +52,7 @@ void ShipDetector::init(const cv::Mat &mapTemplate) {
   this->H = (cv::Mat_<float>(3, 3) << entries[0], entries[1], entries[2],
                                       entries[3], entries[4], entries[5],
                                       entries[6], entries[7], entries[8]);
-  cv::warpPerspective(mapTemplate, this->mapTemplate, H.inv(), mapTemplate.size());
+  //cv::warpPerspective(mapTemplate, this->mapTemplate, H.inv(), mapTemplate.size());
 
   // Set external nodes and inner nodes info.
   std::vector<std::vector<cv::Point2i>> polygons(10);
@@ -114,8 +114,8 @@ void ShipDetector::init(const cv::Mat &mapTemplate) {
       }
     }
 
-    node.drawExternalNode(&this->mapTemplate);
-    node.drawInnerNodes(&this->mapTemplate);
+    //node.drawExternalNode(&this->mapTemplate);
+    //node.drawInnerNodes(&this->mapTemplate);
     this->nodes.push_back(node);
   }
 
@@ -160,7 +160,7 @@ void ShipDetector::init(const cv::Mat &mapTemplate) {
 
 cv::Mat ShipDetector::thresholdImage(const cv::Mat &frame) {
   // TODO(Mateus): test detection with homography later.
-  cv::Mat diff = frame ^ this->mapTemplate;
+  cv::Mat diff = frame - this->mapTemplate;
   cv::blur(diff, diff, cv::Size(7, 7));
   cv::medianBlur(diff, diff, 7);
   cv::cvtColor(diff, diff, CV_HSV2BGR);
