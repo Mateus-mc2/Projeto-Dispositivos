@@ -174,6 +174,11 @@ cv::Mat ShipDetector::thresholdImage(const cv::Mat &frame) {
   mask3 = ThresholdPlayerShip(frame, this->thresholdBounds[2][0], this->thresholdBounds[2][1]);
 
   cv::Mat result = (mask1 | mask2 | mask3) & diff;
+  cv::Mat kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(5, 5));
+
+  cv::dilate(result, result, kernel);
+  //cv::erode(result, result, kernel);
+
   return result;
 }
 

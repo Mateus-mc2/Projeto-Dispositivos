@@ -47,14 +47,13 @@ class ClientSocket {
   void Connect();
   void Send(const std::string &message);
   std::string Receive();
+  void Shutdown(const Mode &mode);
   void Close();
 
   inline bool closed() const { return this->closed_; }
 
  private:
   typedef struct addrinfo AddrInfo;
-
-  void Shutdown(const Mode &mode);
 
   WSAData data_;
   SOCKET connection_socket_;

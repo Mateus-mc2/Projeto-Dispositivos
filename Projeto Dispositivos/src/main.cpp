@@ -1,7 +1,9 @@
 #include <chrono>
+#include <condition_variable>
 #include <fstream>
 #include <iostream>
 #include <mutex>
+#include <queue>
 #include <thread>
 #include <vector>
 
@@ -19,6 +21,11 @@ int idx = 0;
 const std::string kDefaultPort = "27015";
 const std::string kServerHost = "localhost";
 std::mutex guard;
+std::condition_variable condition;
+std::string message = "";
+bool end = false;
+
+bool LockCondition() { return message.compare("") != 0; }
 
 void OnMouseCallback(int mouse_event, int x, int y, int flags, void *param) {
   if (mouse_event == CV_EVENT_LBUTTONDOWN) {
@@ -27,15 +34,24 @@ void OnMouseCallback(int mouse_event, int x, int y, int flags, void *param) {
   }
 }
 
-void SendInfoToPlayer(connection::ClientSocket *socket, int ship, int node, int innerNode) {
+void SendInfoToPlayer() {
+  connection::ClientSocket socket(kServerHost, kDefaultPort);
+
   try {
-    //guard.lock();
-    socket->Connect();
-    socket->Send(std::to_string(ship) + "," + std::to_string(node) + "," + std::to_string(innerNode) + "\n");
-    socket->Close();
-    //guard.unlock();
+    socket.Connect();
+
+    while (!end) {
+      std::unique_lock<std::mutex> lock(guard);
+      condition.wait(lock, LockCondition);
+
+      if (end) std::cout << "Vou enviar..." << std::endl;
+      socket.Send(message);
+      if (end) std::cout << "Enviei!" << std::endl;
+      message = "";
+    }
+
+    socket.Close();
   } catch (connection::SocketException &e) {
-    //socket->Close();
     std::cout << "  Exception caught (SocketException): " << e.what() << std::endl;
   }
 }
@@ -58,10 +74,7 @@ int main(int argc, char* argv[]) {
   cv::VideoWriter outputVideo;
   cv::Mat H;
 
-  connection::ClientSocket socket(kServerHost, kDefaultPort);
-  std::thread connectionThread;
-
-  /*socket.Connect();*/
+  std::thread connectionThread(SendInfoToPlayer);
 
   while (true) {
     cv::Mat frame, filtered;
@@ -122,28 +135,35 @@ int main(int argc, char* argv[]) {
       detection::Candidates ships;
       detector.findShipsBlobs(contours, filtered, binImage, &ships);
 
-      /*for (int i = 0; i < ROIs.size(); ++i) {
-        cv::rectangle(filtered, ROIs[i], cv::Scalar(255, 0, 0));
-      }*/
+      while (LockCondition())
+        std::this_thread::yield();
+
+      std::unique_lock<std::mutex> lock(guard);
 
       for (int i = 0; i < ships.size(); ++i) {
+        bool found = false;
+
         if (ships[i] != -1) {
           cv::Moments shipMoments = cv::moments(contours[ships[i]]);
           cv::Point2i shipCentroid = cv::Point2i(cvRound(shipMoments.m10 / shipMoments.m00),
                                                  cvRound(shipMoments.m01 / shipMoments.m00));
 
-          for (int j = 0; j < nodes.size(); ++j) {
+          for (int j = 0; j < nodes.size() && !found; ++j) {
             if (nodes[j].contains(shipCentroid)) {
-              //connectionThread = std::thread(SendInfoToPlayer, &socket, nodes[j]);
-              SendInfoToPlayer(&socket, i + 1, j + 1, nodes[j].getInnerNode(shipCentroid));
-              break;
-              /*cv::Rect shipBounds = cv::boundingRect(contours[ships[i]]);
-              cv::rectangle(filtered, shipBounds, cv::Scalar(0, 255, 0));
-              break;*/
+              message += std::to_string(j+1) + "," +
+                         std::to_string(nodes[j].getInnerNode(shipCentroid)) + ",";
+              found = true;
             }
           }
         }
+
+        if (!found) {
+          message += "-1,-1,";
+        }
       }
+
+      message.replace(message.end() - 1, message.end(), "\n");
+      condition.notify_one();
     }
 
     if (start) {
@@ -161,11 +181,15 @@ int main(int argc, char* argv[]) {
     outputVideo.write(filtered);
     ++currFrame;
 
-    if (cv::waitKey(30) == 27)
-    break;
+    if (cv::waitKey(30) == 27) {
+      message = "Close this connection\n";
+      end = true;  // Termine, por favor...
+      if (connectionThread.joinable())
+        connectionThread.join();
+      break;
+    }
   }
 
-  //socket.Close();
   capture.release();
   outputVideo.release();
   cv::destroyAllWindows();
