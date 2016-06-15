@@ -18,7 +18,7 @@
 #include "ClientSocket.h"
 
 int idx = 0;
-const std::string kDefaultPort = "27015";
+const std::string kDefaultPort = "8001";
 const std::string kServerHost = "localhost";
 std::mutex guard;
 std::condition_variable condition;
@@ -44,10 +44,11 @@ void SendInfoToPlayer() {
       std::unique_lock<std::mutex> lock(guard);
       condition.wait(lock, LockCondition);
 
-      if (end) std::cout << "Vou enviar..." << std::endl;
+      std::cout << "Vou enviar..." << std::endl;
       socket.Send(message);
-      if (end) std::cout << "Enviei!" << std::endl;
+      std::cout << "Enviei!" << std::endl;
       message = "";
+      //std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
 
     socket.Close();
@@ -106,6 +107,7 @@ int main(int argc, char* argv[]) {
         cv::waitKey(30);
       }
 
+      cv::destroyWindow("Homography Settings");
       H = cv::getPerspectiveTransform(image_pts, domain_pts);
       cv::warpPerspective(filtered, filtered, H, filtered.size());
       detector.init(filtered);
@@ -163,7 +165,7 @@ int main(int argc, char* argv[]) {
       }
 
       message.replace(message.end() - 1, message.end(), "\n");
-      condition.notify_one();
+      condition.notify_all();
     }
 
     if (start) {
@@ -184,8 +186,7 @@ int main(int argc, char* argv[]) {
     if (cv::waitKey(30) == 27) {
       message = "Close this connection\n";
       end = true;  // Termine, por favor...
-      if (connectionThread.joinable())
-        connectionThread.join();
+      connectionThread.join();
       break;
     }
   }
