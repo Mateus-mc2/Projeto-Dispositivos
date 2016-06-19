@@ -161,7 +161,7 @@ void ShipDetector::init(const cv::Mat &mapTemplate) {
 cv::Mat ShipDetector::thresholdImage(const cv::Mat &frame) {
   // TODO(Mateus): test detection with homography later.
   cv::Mat diff = frame - this->mapTemplate;
-  cv::blur(diff, diff, cv::Size(7, 7));
+  //cv::blur(diff, diff, cv::Size(7, 7));
   cv::medianBlur(diff, diff, 7);
   cv::cvtColor(diff, diff, CV_HSV2BGR);
   cv::cvtColor(diff, diff, CV_BGR2GRAY);
