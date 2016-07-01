@@ -32,6 +32,8 @@ class ShipDetector {
   cv::Mat getHomography() const { return this->H; }
   MapNodes getNodes() const { return this->nodes; }
 
+  void SetParametersAt(int index, const cv::Scalar &lower, const cv::Scalar &upper);
+
  private:
   void tryInsertBlob(const std::vector<std::vector<cv::Point2i>> &contours, size_t blob,
                      Candidates *ships, size_t ship);

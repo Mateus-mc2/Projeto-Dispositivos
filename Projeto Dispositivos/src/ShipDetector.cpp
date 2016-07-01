@@ -160,12 +160,13 @@ void ShipDetector::init(const cv::Mat &mapTemplate) {
 
 cv::Mat ShipDetector::thresholdImage(const cv::Mat &frame) {
   // TODO(Mateus): test detection with homography later.
-  cv::Mat diff = frame - this->mapTemplate;
-  //cv::blur(diff, diff, cv::Size(7, 7));
+  //cv::Mat diff = frame - this->mapTemplate;
+  /*cv::blur(diff, diff, cv::Size(7, 7));
   cv::medianBlur(diff, diff, 7);
   cv::cvtColor(diff, diff, CV_HSV2BGR);
   cv::cvtColor(diff, diff, CV_BGR2GRAY);
-  cv::threshold(diff, diff, 10, 255, CV_THRESH_BINARY);
+  cv::equalizeHist(diff, diff);
+  cv::threshold(diff, diff, 10, 255, CV_THRESH_BINARY);*/
 
   cv::Mat mask1, mask2, mask3;
 
@@ -180,6 +181,7 @@ cv::Mat ShipDetector::thresholdImage(const cv::Mat &frame) {
   cv::dilate(result, result, kernel);
   cv::erode(result, result, kernel);
 
+  //return diff;
   return result;
 }
 
@@ -204,6 +206,13 @@ int ShipDetector::findShipsBlobs(const std::vector<std::vector<cv::Point2i>> &co
 
   //return numShipsDetected;
   return 0;
+}
+
+void ShipDetector::SetParametersAt(int index, const cv::Scalar &lower, const cv::Scalar &upper) {
+  if (index < this->thresholdBounds.size()) {
+    this->thresholdBounds[index][0] = lower;
+    this->thresholdBounds[index][1] = upper;
+  }
 }
 
 void ShipDetector::tryInsertBlob(const std::vector<std::vector<cv::Point2i>> &contours, size_t blob,
