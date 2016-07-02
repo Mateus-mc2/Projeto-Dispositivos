@@ -99,7 +99,7 @@ void SendInfoToPlayer() {
 }
 
 int main(int argc, char* argv[]) {
-  cv::VideoCapture capture(0);
+  cv::VideoCapture capture(1);
 
   if (!capture.isOpened()) {
     std::cout << "Couldn't find video device." << std::endl;
@@ -116,7 +116,7 @@ int main(int argc, char* argv[]) {
   cv::VideoWriter outputVideo;
   cv::Mat H;
 
-  //std::thread connectionThread(SendInfoToPlayer);
+  std::thread connectionThread(SendInfoToPlayer);
 
   while (true) {
     cv::Mat frame, filtered;
@@ -225,10 +225,10 @@ int main(int argc, char* argv[]) {
       detection::Candidates ships;
       detector.findShipsBlobs(contours, filtered, binImage, &ships);
 
-      /*while (LockCondition())
-        std::this_thread::yield();*/
+      while (LockCondition())
+        std::this_thread::yield();
 
-      //std::unique_lock<std::mutex> lock(guard);
+      std::unique_lock<std::mutex> lock(guard);
 
       for (int i = 0; i < ships.size(); ++i) {
         bool found = false;
@@ -253,7 +253,7 @@ int main(int argc, char* argv[]) {
       }
 
       message.replace(message.end() - 1, message.end(), "\n");
-      //condition.notify_all();
+      condition.notify_all();
     }
 
     if (start) {
@@ -273,8 +273,9 @@ int main(int argc, char* argv[]) {
 
     if (cv::waitKey(30) == 27) {
       message = "Close this connection\n";
-      end = true;  // Termine, por favor...
-      //connectionThread.join();
+      end = true;
+      condition.notify_all();
+      connectionThread.join();
       break;
     }
   }

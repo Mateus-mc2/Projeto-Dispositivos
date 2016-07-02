@@ -11,11 +11,11 @@
 namespace detection {
 namespace {
 
-static std::string map_settings = "../../../data/map_homography.txt";
-static std::string external_nodes_settings = "../../../data/map_ext_nodes.txt";
-static std::string inner_nodes_settings = "../../../data/map_inner_nodes.txt";
-//static std::string nodes_settings = "../../../data/map_nodes.txt";
-static std::string threshold_settings = "../../../data/player_thresholds.txt";
+std::string map_settings = "../../../data/map_homography.txt";
+std::string external_nodes_settings = "../../../data/map_ext_nodes.txt";
+std::string inner_nodes_settings = "../../../data/map_inner_nodes.txt";
+//std::string nodes_settings = "../../../data/map_nodes.txt";
+std::string threshold_settings = "../../../data/player_thresholds.txt";
 
 bool operator >=(const cv::Scalar &a, const cv::Scalar &b) {
   return a(0) >= b(0) && a(1) >= b(1) && a(2) >= b(2);
@@ -178,8 +178,8 @@ cv::Mat ShipDetector::thresholdImage(const cv::Mat &frame) {
   cv::Mat result = (mask1 | mask2 | mask3);
   cv::Mat kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(11, 11));
 
-  cv::dilate(result, result, kernel);
-  cv::erode(result, result, kernel);
+  //cv::dilate(result, result, kernel);
+  //cv::erode(result, result, kernel);
 
   //return diff;
   return result;
