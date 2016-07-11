@@ -79,9 +79,16 @@ void OnTrackbarCallback(int value, void *param) {
 void SendInfoToPlayer() {
   connection::ClientSocket socket(kServerHost, kDefaultPort);
 
-  try {
-    socket.Connect();
+  while (true) {
+    try {
+      socket.Connect();
+      break;
+    } catch (connection::SocketException &e) {
+      std::cout << e.what() << std::endl;
+    }
+  }
 
+  try {
     while (!end) {
       std::unique_lock<std::mutex> lock(guard);
       condition.wait(lock, LockCondition);
@@ -121,6 +128,7 @@ int main(int argc, char* argv[]) {
   while (true) {
     cv::Mat frame, filtered;
     capture >> frame;
+    cv::resize(frame, frame, cv::Size(705,400));
 
     filtered = cv::Mat::zeros(frame.size(), frame.type());
     cv::Ptr<cv::ximgproc::DTFilter> ptrFilter = cv::ximgproc::createDTFilter(frame, 30, 10);
@@ -129,11 +137,11 @@ int main(int argc, char* argv[]) {
     cv::GaussianBlur(filtered, filtered, cv::Size(7, 7), 1.5, 1.5);
     cv::cvtColor(filtered, filtered, CV_BGR2YCrCb);
 
-    std::vector<cv::Mat> channels;
+    /*std::vector<cv::Mat> channels;
     cv::split(filtered, channels);
     cv::equalizeHist(channels[0], channels[0]);
     cv::merge(channels, filtered);
-    cv::cvtColor(filtered, filtered, CV_YCrCb2BGR);
+    cv::cvtColor(filtered, filtered, CV_YCrCb2BGR);*/
     cv::cvtColor(filtered, filtered, CV_BGR2HSV);
 
     if (!start && currFrame == 10) {
@@ -141,8 +149,10 @@ int main(int argc, char* argv[]) {
       cv::namedWindow("Homography Settings");
 
       std::vector<cv::Point2f> domain_pts(4);
-      float height = static_cast<float>(capture.get(CV_CAP_PROP_FRAME_HEIGHT));
-      float width = static_cast<float>(capture.get(CV_CAP_PROP_FRAME_WIDTH));
+      /*float height = static_cast<float>(capture.get(CV_CAP_PROP_FRAME_HEIGHT));
+      float width = static_cast<float>(capture.get(CV_CAP_PROP_FRAME_WIDTH));*/
+      float height = 400;
+      float width = 705.5;
 
       domain_pts[0] = cv::Point2f(0, 0);
       domain_pts[1] = cv::Point2f(width, 0);

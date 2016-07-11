@@ -55,7 +55,7 @@ void ShipDetector::init(const cv::Mat &mapTemplate) {
   //cv::warpPerspective(mapTemplate, this->mapTemplate, H.inv(), mapTemplate.size());
 
   // Set external nodes and inner nodes info.
-  std::vector<std::vector<cv::Point2i>> polygons(10);
+  std::vector<std::vector<cv::Point2i>> polygons(6);
   fileStream.open(external_nodes_settings.c_str());
 
   while (!fileStream.eof()) {
@@ -68,10 +68,10 @@ void ShipDetector::init(const cv::Mat &mapTemplate) {
     int idx = std::stoi(tokens[0]);
     for (int i = 1; i < tokens.size(); ++i) {
       int mid = static_cast<int>(tokens[i].find(","));
-      int x = std::stoi(tokens[i].substr(1, tokens[i].size() - mid));
-      int y = std::stoi(tokens[i].substr(mid + 1, tokens[i].size() - 1));
+      float x = std::stof(tokens[i].substr(1, tokens[i].size() - mid));
+      float y = std::stof(tokens[i].substr(mid + 1, tokens[i].size() - 1));
 
-      polygons[idx].push_back(cv::Point2i(x, y));
+      polygons[idx].push_back(cv::Point2i(cvRound(x), cvRound(y)));
     }
   }
 
@@ -92,7 +92,7 @@ void ShipDetector::init(const cv::Mat &mapTemplate) {
     int idx = std::stoi(tokens[0]);
     float x = std::stof(tokens[1].substr(1, tokens[1].size() - 1));
     float y = std::stof(tokens[2].substr(0, tokens[2].size() - 1));
-    int radius = std::stoi(tokens[3]);
+    double radius = std::stod(tokens[3]);
 
     circles.push_back(geometry::Circle(cv::Point2f(x, y), radius, idx));
   }
@@ -159,7 +159,6 @@ void ShipDetector::init(const cv::Mat &mapTemplate) {
 }
 
 cv::Mat ShipDetector::thresholdImage(const cv::Mat &frame) {
-  // TODO(Mateus): test detection with homography later.
   //cv::Mat diff = frame - this->mapTemplate;
   /*cv::blur(diff, diff, cv::Size(7, 7));
   cv::medianBlur(diff, diff, 7);
@@ -220,7 +219,7 @@ void ShipDetector::tryInsertBlob(const std::vector<std::vector<cv::Point2i>> &co
   int shipIdx = (*ships)[ship];
 
   if (shipIdx == -1 || contours[shipIdx].size() < contours[blob].size()) {
-    (*ships)[ship] = blob;
+    (*ships)[ship] = static_cast<int>(blob);
   }
 }
 
